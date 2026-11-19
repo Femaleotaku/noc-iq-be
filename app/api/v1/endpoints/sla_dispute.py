@@ -15,6 +15,7 @@ from app.schemas.sla_dispute import (
     DisputeResolveRequest,
     DisputeResponse,
     CreateProposedSLARequest,
+    paginate_evidence,
 )
 from app.core.security import require_engineer, require_admin
 from app.services.sla.sla_calculator import SLACalculator
@@ -246,6 +247,8 @@ def resolve_dispute(
 )
 def get_dispute(
     sla_result_id: int,
+    evidence_limit: int = Query(20, ge=1, le=100),
+    evidence_offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     dispute = (
@@ -259,7 +262,10 @@ def get_dispute(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No dispute found for this SLA result.",
         )
-    return dispute
+    response = DisputeResponse.model_validate(dispute)
+    evidence = [{"url": dispute.evidence_url}] if dispute.evidence_url else []
+    response.evidence_page = paginate_evidence(evidence, evidence_limit, evidence_offset)
+    return response
 
 
 @router.get(
